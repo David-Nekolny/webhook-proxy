@@ -48,17 +48,17 @@ docker compose logs -f
 | `GITHUB_WEBHOOK_SECRET` | Yes | GitHub webhook signing secret |
 | `VERCEL_WEBHOOK_SECRET` | Yes | Vercel webhook signing secret |
 | `GMAIL_PUBSUB_TOKEN` | Yes | Bearer token for Gmail Pub/Sub push |
-| `OPENCLAW_WEBHOOK_URL` | Yes | Target URL for forwarded events |
-| `PROXY_SECRET` | Yes | Shared secret sent as `X-Proxy-Secret` |
+| `OPENCLAW_WEBHOOK_URL` | Yes | OpenClaw gateway base URL (e.g. `http://localhost:18789`) |
+| `OPENCLAW_HOOKS_TOKEN` | Yes | OpenClaw hooks token (`hooks.token` in `openclaw.json`) |
 
 ## Forwarded request format
 
-Every verified webhook is forwarded as a `POST` request to `OPENCLAW_WEBHOOK_URL` with:
+Every verified webhook is forwarded as a `POST` to `$OPENCLAW_WEBHOOK_URL/hooks/agent` using the [OpenClaw Hooks API](https://docs.openclaw.ai):
 
 **Headers:**
 ```
 Content-Type: application/json
-X-Proxy-Secret: <PROXY_SECRET>
+Authorization: Bearer <OPENCLAW_HOOKS_TOKEN>
 X-Source: github | vercel | gmail
 X-Event: <event type>
 ```
@@ -66,10 +66,11 @@ X-Event: <event type>
 **Body:**
 ```json
 {
-  "source": "github",
-  "event": "push",
-  "payload": { ... },
-  "receivedAt": "2024-01-01T00:00:00.000Z"
+  "name": "GitHub",
+  "message": "Webhook received from github [push] at 2024-01-01T00:00:00.000Z:\n{...payload summary...}",
+  "wakeMode": "now",
+  "deliver": true,
+  "channel": "discord"
 }
 ```
 

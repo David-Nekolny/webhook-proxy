@@ -22,7 +22,11 @@ function sourceName(source: WebhookSource): string {
 
 export async function forward(data: ForwardPayload): Promise<void> {
   const baseUrl = process.env.OPENCLAW_WEBHOOK_URL;
-  const token = process.env.OPENCLAW_HOOKS_TOKEN ?? '';
+  const token = process.env.OPENCLAW_HOOKS_TOKEN;
+
+  if (!token) {
+    throw new Error('OPENCLAW_HOOKS_TOKEN is not configured');
+  }
 
   if (!baseUrl) {
     throw new Error('OPENCLAW_WEBHOOK_URL is not configured');
@@ -69,5 +73,5 @@ export async function forward(data: ForwardPayload): Promise<void> {
     );
   }
 
-  logger.info({ source: data.source, event: data.event, url }, 'Forwarded to OpenClaw');
+  logger.debug({ source: data.source, event: data.event, url }, 'Forwarded to OpenClaw');
 }
