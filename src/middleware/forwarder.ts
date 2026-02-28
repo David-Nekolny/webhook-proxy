@@ -11,13 +11,37 @@ export interface ForwardPayload {
 
 const FORWARD_TIMEOUT_MS = 10_000;
 
-export async function forward(data: ForwardPayload): Promise<void> {
-  const url = process.env.OPENCLAW_WEBHOOK_URL;
-  const secret = process.env.PROXY_SECRET ?? '';
+function buildMessage(data: ForwardPayload): string {
+  const summary = JSON.stringify(data.payload).slice(0, 400);
+  return `Webhook received from ${data.source} [${data.event}] at ${data.receivedAt}:\n${summary}`;
+}
 
-  if (!url) {
+function sourceName(source: WebhookSource): string {
+  return { github: 'GitHub', vercel: 'Vercel', gmail: 'Gmail' }[source];
+}
+
+export async function forward(data: ForwardPayload): Promise<void> {
+  const baseUrl = process.env.OPENCLAW_WEBHOOK_URL;
+  const token = process.env.OPENCLAW_HOOKS_TOKEN;
+
+  if (!token) {
+    throw new Error('OPENCLAW_HOOKS_TOKEN is not configured');
+  }
+
+  if (!baseUrl) {
     throw new Error('OPENCLAW_WEBHOOK_URL is not configured');
   }
+
+  // Strip trailing slash and append /hooks/agent
+  const url = baseUrl.replace(/\/+$/, '') + '/hooks/agent';
+
+  const body = {
+    name: sourceName(data.source),
+    message: buildMessage(data),
+    wakeMode: 'now',
+    deliver: true,
+    channel: 'discord',
+  };
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FORWARD_TIMEOUT_MS);
@@ -28,11 +52,11 @@ export async function forward(data: ForwardPayload): Promise<void> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Proxy-Secret': secret,
+        'Authorization': `Bearer ${token}`,
         'X-Source': data.source,
         'X-Event': data.event,
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
   } catch (err) {
@@ -43,9 +67,9 @@ export async function forward(data: ForwardPayload): Promise<void> {
   }
 
   if (!response.ok) {
-    const body = await response.text().catch(() => '');
+    const bodyText = await response.text().catch(() => '');
     throw new Error(
-      `Upstream returned ${response.status} ${response.statusText}: ${body}`.trimEnd(),
+      `Upstream returned ${response.status} ${response.statusText}: ${bodyText}`.trimEnd(),
     );
   }
 
