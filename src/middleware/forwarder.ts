@@ -43,6 +43,7 @@ export async function forward(data: ForwardPayload): Promise<void> {
   const body = {
     name: sourceName(data.source),
     message: buildMessage(data),
+    payload: data.payload,
     wakeMode: 'now',
     deliver: true,
     channel: 'discord',
