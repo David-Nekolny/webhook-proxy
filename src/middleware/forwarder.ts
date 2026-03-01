@@ -32,8 +32,13 @@ export async function forward(data: ForwardPayload): Promise<void> {
     throw new Error('OPENCLAW_WEBHOOK_URL is not configured');
   }
 
-  // Strip trailing slash and append /hooks/agent
-  const url = baseUrl.replace(/\/+$/, '') + '/hooks/agent';
+  // Route to source-specific OpenClaw hook path so hook mappings (match.path) fire correctly
+  const SOURCE_PATHS: Record<WebhookSource, string> = {
+    github: '/hooks/github-pr',
+    vercel: '/hooks/agent',
+    gmail: '/hooks/agent',
+  };
+  const url = baseUrl.replace(/\/+$/, '') + SOURCE_PATHS[data.source];
 
   const body = {
     name: sourceName(data.source),
