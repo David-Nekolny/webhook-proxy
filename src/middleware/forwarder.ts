@@ -40,10 +40,12 @@ export async function forward(data: ForwardPayload): Promise<void> {
   };
   const url = baseUrl.replace(/\/+$/, '') + SOURCE_PATHS[data.source];
 
+  // Spread the raw payload at the top level so OpenClaw messageTemplate
+  // variables (e.g. {{pull_request.number}}) can be substituted correctly.
   const body = {
+    ...(typeof data.payload === 'object' && data.payload !== null ? data.payload : {}),
     name: sourceName(data.source),
     message: buildMessage(data),
-    payload: data.payload,
     wakeMode: 'now',
     deliver: true,
     channel: 'discord',
