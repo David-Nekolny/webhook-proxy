@@ -50,6 +50,21 @@ router.post('/', async (req: Request, res: Response) => {
     payload = rawBody.toString('utf-8');
   }
 
+  // Only forward merged pull_request events — skip pings, pushes, and unmerged closes
+  if (event !== 'pull_request') {
+    logger.debug({ source: 'github', event }, 'Skipping non-pull_request event');
+    return res.status(200).json({ status: 'ignored', reason: 'not a pull_request event' });
+  }
+
+  const pr = (payload as Record<string, unknown>);
+  const action = pr['action'];
+  const merged = (pr['pull_request'] as Record<string, unknown> | undefined)?.['merged'];
+
+  if (action !== 'closed' || merged !== true) {
+    logger.debug({ source: 'github', event, action, merged }, 'Skipping unmerged/non-closed PR event');
+    return res.status(200).json({ status: 'ignored', reason: 'PR not merged' });
+  }
+
   try {
     await forward({
       source: 'github',
@@ -57,7 +72,7 @@ router.post('/', async (req: Request, res: Response) => {
       payload,
       receivedAt: new Date().toISOString(),
     });
-    logger.info({ source: 'github', event }, 'Webhook forwarded successfully');
+    logger.info({ source: 'github', event, action }, 'Webhook forwarded successfully');
     return res.status(200).json({ status: 'ok' });
   } catch (err) {
     logger.error({ source: 'github', event, err }, 'Failed to forward webhook');
