@@ -32,13 +32,19 @@ export async function forward(data: ForwardPayload): Promise<void> {
     throw new Error('OPENCLAW_WEBHOOK_URL is not configured');
   }
 
-  // Route to source-specific OpenClaw hook path so hook mappings (match.path) fire correctly
-  const SOURCE_PATHS: Record<WebhookSource, string> = {
-    github: '/hooks/github-pr',
-    vercel: '/hooks/agent',
-    gmail: '/hooks/agent',
-  };
-  const url = baseUrl.replace(/\/+$/, '') + SOURCE_PATHS[data.source];
+  // Route to source-specific OpenClaw hook path so hook mappings (match.path) fire correctly.
+  // For GitHub, append the repo slug so each repo can have its own mapping + Discord channel.
+  let hookPath: string;
+  if (data.source === 'github') {
+    const repoName = (
+      (data.payload as Record<string, unknown>)?.['repository'] as Record<string, unknown>
+    )?.['name'] as string | undefined;
+    const slug = repoName ? repoName.toLowerCase().replace(/[^a-z0-9-]/g, '-') : 'unknown';
+    hookPath = `/hooks/github-pr-${slug}`;
+  } else {
+    hookPath = '/hooks/agent';
+  }
+  const url = baseUrl.replace(/\/+$/, '') + hookPath;
 
   // Spread the raw payload at the top level so OpenClaw messageTemplate
   // variables (e.g. {{pull_request.number}}) can be substituted correctly.
