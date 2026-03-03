@@ -12,10 +12,17 @@ const startedAt = Date.now();
 // Disable x-powered-by header
 app.disable('x-powered-by');
 
-// Mount webhook routers — each router applies its own body parser
+// Mount webhook routers — each router applies its own body parser.
+// Both /webhooks/<source> and /<source> are supported:
+//   - /webhooks/* is used for direct access and legacy config
+//   - /<source> is used when Tailscale Funnel strips the /webhooks path prefix
+//     (e.g. tailscale funnel --set-path /webhooks routes /webhooks/github → /github)
 app.use('/webhooks/github', githubRouter);
 app.use('/webhooks/vercel', vercelRouter);
 app.use('/webhooks/gmail', gmailRouter);
+app.use('/github', githubRouter);
+app.use('/vercel', vercelRouter);
+app.use('/gmail', gmailRouter);
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
