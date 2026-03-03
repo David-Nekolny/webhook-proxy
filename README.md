@@ -6,20 +6,20 @@ A lightweight TypeScript/Node.js proxy that receives webhooks from external sour
 
 ```
 GitHub / Vercel / Gmail
-        │  HTTPS
+        │  HTTPS POST
         ▼
-https://<tailscale-funnel-url>
+https://<hostname>.ts.net/webhooks/github
         │  Tailscale Funnel
+        │  (--set-path /webhooks strips prefix → forwards as /github)
         ▼
-webhook-proxy :3000          ← this service
-  • verifies signatures/tokens
+webhook-proxy :3456          ← this service
+  • verifies signatures/tokens   (both /webhooks/* and /* paths accepted)
   • filters relevant events
   • routes per source/repo
         │  HTTP (localhost)
         ▼
 OpenClaw Gateway :18789
   /hooks/github-pr-<reponame>
-  /hooks/agent
         │
         ▼
 Discord (correct channel per repo)
@@ -114,11 +114,38 @@ systemctl --user restart openclaw-gateway.service
 
 ### 4. Expose publicly via Tailscale Funnel
 
+Tailscale Funnel is the recommended way to expose the proxy publicly without needing a domain or opening firewall ports.
+
+**Path-based routing (recommended)** — exposes only the `/webhooks/` path publicly while keeping the rest of the node private:
+
 ```bash
-tailscale funnel --bg 3000
+tailscale funnel --bg --set-path /webhooks http://127.0.0.1:<PORT>
 ```
 
-Your public URL will be: `https://<hostname>.<tailnet>.ts.net`
+Your public webhook URL will be: `https://<hostname>.<tailnet>.ts.net/webhooks/github`
+
+> **Note:** Tailscale Funnel strips the `/webhooks` prefix before forwarding to the local service.
+> The proxy handles this by mounting each router on **both** `/webhooks/<source>` and `/<source>` paths — so both direct access and Funnel-forwarded requests work correctly.
+
+**Full-port routing (simpler)** — exposes the entire service:
+
+```bash
+tailscale funnel --bg <PORT>
+```
+
+Your public webhook URL will be: `https://<hostname>.<tailnet>.ts.net/webhooks/github`
+
+**Check current Funnel status:**
+
+```bash
+tailscale funnel status
+```
+
+**Remove Funnel config:**
+
+```bash
+tailscale funnel reset
+```
 
 ### 5. Run
 
